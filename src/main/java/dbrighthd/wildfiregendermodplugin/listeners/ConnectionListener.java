@@ -8,7 +8,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import java.util.Collections;
 import java.util.UUID;
 
 /**
@@ -30,7 +29,7 @@ public class ConnectionListener implements Listener {
         plugin.getCustomLogger().info("Syncing %s", player.getName());
 
         // Send ALL stored mod configurations to the newly joined player.
-        plugin.getNetworkManager().sync(Collections.singletonList(player));
+        plugin.getNetworkManager().syncAllTo(player);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -41,6 +40,6 @@ public class ConnectionListener implements Listener {
         plugin.getCustomLogger().debug("Removing %s", player.getName());
 
         // Remove configuration for a player who is no longer online.
-        plugin.getUserManager().getUsers().remove(uuid);
+        plugin.getUserManager().remove(uuid);
     }
 }

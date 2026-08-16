@@ -21,7 +21,21 @@ public class ModPayloadListener implements PluginMessageListener {
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
-        if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE)) return;
+        if (!channel.equals(ModConstants.SEND_GENDER_INFO)
+                && !channel.equals(ModConstants.FORGE)
+                && !channel.equals(ModConstants.SERVERBOUND_HELLO)) return;
+
+        byte[] payload = message.clone();
+        plugin.getTaskDispatcher().runFor(player, () -> handlePayload(channel, player, payload));
+    }
+
+    private void handlePayload(String channel, Player player, byte[] message) {
+        if (!player.isOnline()) return;
+
+        if (channel.equals(ModConstants.SERVERBOUND_HELLO)) {
+            plugin.getNetworkManager().handleHello(player, message);
+            return;
+        }
 
         ModUser user = plugin.getNetworkManager().deserializeUser(message, channel.equals(ModConstants.FORGE));
         if (user == null) return;
@@ -34,11 +48,11 @@ public class ModPayloadListener implements PluginMessageListener {
             return;
         }
 
-        plugin.getUserManager().getUsers().put(user.userId(), user);
+        plugin.getUserManager().put(user);
         plugin.getCustomLogger().debug("Stored %s as %s",
                 player.getName(), user.configuration().generalOptions().genderIdentity().name());
 
-        // Sync mod configurations for ALL online players.
-        plugin.getNetworkManager().sync(plugin.getServer().getOnlinePlayers());
+        // Sync only the changed user. Recipient access is scheduled by NetworkManager.
+        plugin.getNetworkManager().broadcast(user);
     }
 }

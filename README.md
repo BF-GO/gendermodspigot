@@ -1,39 +1,40 @@
-# Plugin for Wildfire's Female Gender Mod
+# Female Gender Mod Plugin
 
-This is a Spigot plugin that allows clients using [Wildfire's Female Gender Mod](https://modrinth.com/mod/female-gender)
-to have synced configs when playing on a Spigot server. This plugin was made by me as a member of the community and is
-not affiliated with the Wildfire's Female Gender Mod.
+This Paper/Folia plugin synchronizes per-player settings for
+[Wildfire's Female Gender Mod](https://modrinth.com/mod/female-gender). The client mod is still required; this plugin
+only provides server-side configuration synchronization. It is a community project and is not affiliated with the mod.
 
-Wildfire's Female Gender Mod is still required on the client to use the features, all this plugin does is sync the
-player-specific settings as it would on a Fabric server with the mod installed.
+Thanks to Flamgop for the original plugin-development help, and to Stigstille and winnpixie for the version ports.
 
-Currently, this plugin only works in syncing the Fabric version of the mod, but I will be trying to fix it in the future
-for Forge (if possible). This is the first plugin I have ever made so it is not particularly clean, but it works!
+Download releases from [Modrinth](https://modrinth.com/plugin/female-gender-spigot).
 
-Thank you to Flamgop for the help with learning how to make a plugin, and Stigstille + winnpixie for porting it to the
-latest Spigot version!
+## Compatibility
 
-Download from Modrinth: https://modrinth.com/plugin/female-gender-spigot
+- Paper and Folia: Minecraft 1.21.x through 26.2
+- Spigot and Minecraft versions older than 1.21 are not supported
+- Minecraft 1.21.x servers require Java 21
+- Minecraft 26.2 servers require Java 25
+- Folia 26.2 support is beta while the corresponding Folia builds remain beta
 
-## Build Instructions
+Version 1.6.0 is distributed as one Java 21 bytecode JAR for both Paper and Folia. Female Gender Mod 5.0.0-Beta.4
+is supported through protocol V5, including its play-phase hello handshake.
 
-1. (Optional) Open the project in your IDE of choice (i.e. Eclipse, IntelliJ IDEA, NetBeans, etc.)
-2. Compile using Maven's `Package` task (or run the command `mvn package` in your terminal).
-3. Copy the JAR file from the `target` folder to your server's `plugins` directory.
-4. Enjoy synced gender settings!
+## Building
 
-## Configuration Help
+1. Install JDK 21 or newer and Maven.
+2. Run `mvn package`.
+3. Copy the JAR from `target` into the server's `plugins` directory.
 
-### Mod
+## Configuration
 
-`protocol` (Which packet format to use)
+`mod.protocol` selects the Female Gender Mod packet format:
 
-| Protocol |      Mod      |
-|:--------:|:-------------:|
-|    2     | 2.8.1 - 3.0.1 |
-|    3     | 3.1.0 - 4.0.0 |
-|    4     | 4.0.0 - 4.3.4 |
-|    5     | 5.0.0 - ?.?.? |
+| Protocol | Mod versions |
+|:--------:|:-------------|
+| 2 | 2.8.1–3.0.1 |
+| 3 | 3.1.0–4.0.0 |
+| 4 | 4.0.1–4.3.4 |
+| 5 | 5.0.0, including Beta.4 |
 
-Setting this value to -1 will try using the newest known protocol, useful so you don't need to change this manually
-every time you update the mod and plugin.
+The default value `-1` selects the newest supported protocol (currently V5). Any other unsupported value prevents the
+plugin from enabling, so it cannot register incompatible channels or listeners.
