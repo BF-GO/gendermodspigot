@@ -13,10 +13,6 @@ public class TaskDispatcher {
         this.plugin = plugin;
     }
 
-    public void runGlobal(Runnable task) {
-        plugin.getServer().getGlobalRegionScheduler().execute(plugin, task);
-    }
-
     public boolean runFor(Player player, Runnable task) {
         return player.getScheduler().execute(plugin, task, null, 1L);
     }

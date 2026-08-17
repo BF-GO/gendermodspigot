@@ -16,6 +16,10 @@ public class UserManager {
         users.remove(userId);
     }
 
+    public ModUser get(UUID userId) {
+        return users.get(userId);
+    }
+
     public List<ModUser> snapshot() {
         return List.copyOf(users.values());
     }

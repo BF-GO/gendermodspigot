@@ -15,7 +15,6 @@ import org.bukkit.entity.Player;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -62,60 +61,48 @@ public class NetworkManager {
     }
 
     /**
-     * Sends every stored user to one player on that player's owning thread.
+     * Sends one stored profile to one viewer on the viewer's owning thread.
      */
-    public void syncAllTo(Player target) {
-        List<EncodedUser> users = plugin.getUserManager().snapshot().stream()
-                .map(this::encodeUser)
-                .toList();
-
-        taskDispatcher.runFor(target, () -> {
-            for (EncodedUser user : users) {
-                sendEncoded(target, user);
-            }
-        });
+    public void syncUserTo(Player target, ModUser user) {
+        EncodedUser encoded = encodeUser(user);
+        taskDispatcher.runFor(target, () -> sendEncoded(target, encoded));
     }
 
     /**
-     * Broadcasts one changed user without touching player state outside its owner thread.
+     * Broadcasts one changed profile only to players currently tracking its owner.
+     * This method must be invoked from the source player's owning thread.
      */
-    public void broadcast(ModUser user) {
+    public void broadcast(Player source, ModUser user) {
         EncodedUser encoded = encodeUser(user);
-
-        taskDispatcher.runGlobal(() -> {
-            Player[] recipients = plugin.getServer().getOnlinePlayers().toArray(Player[]::new);
-            for (Player recipient : recipients) {
-                taskDispatcher.runFor(recipient, () -> sendEncoded(recipient, encoded));
-            }
-        });
+        Set<Player> recipients = Set.copyOf(source.getTrackedBy());
+        for (Player recipient : recipients) {
+            if (recipient.getUniqueId().equals(source.getUniqueId())) continue;
+            taskDispatcher.runFor(recipient, () -> sendEncoded(recipient, encoded));
+        }
     }
 
-    public ModUser deserializeUser(byte[] data, boolean forge) {
+    public ModUser deserializeUser(byte[] data, boolean forge) throws IOException {
         try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
-            if (forge) input.readByte();
+            if (forge && input.readUnsignedByte() != 1) {
+                throw new IOException("Invalid Forge packet discriminator");
+            }
 
             ModUser user = packetFormat.read(input);
             if (input.available() != 0) {
                 throw new IOException("Unexpected trailing data in sync payload");
             }
+            ModUserValidator.validate(user, packetFormat.getVersion());
             return user;
-        } catch (IOException | RuntimeException ex) {
-            plugin.getCustomLogger().warning(ex, "Could not deserialize user (forge=%s)", forge);
+        } catch (RuntimeException ex) {
+            throw new IOException("Could not deserialize user (forge=" + forge + ")", ex);
         }
-
-        return null;
     }
 
-    public void handleHello(Player target, byte[] data) {
+    public HelloResult handleHello(Player target, byte[] data) throws IOException {
         try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
             int clientVersion = input.readVarInt();
             if (input.available() != 0) {
                 throw new IOException("Unexpected trailing data in sync hello");
-            }
-            if (clientVersion != SYNC_HELLO_VERSION) {
-                plugin.getCustomLogger().warning(
-                        "Sync protocol mismatch for %s: client=%d, server=%d",
-                        target.getName(), clientVersion, SYNC_HELLO_VERSION);
             }
 
             try (ByteArrayOutputStream payload = new ByteArrayOutputStream();
@@ -123,8 +110,9 @@ public class NetworkManager {
                 output.writeVarInt(SYNC_HELLO_VERSION);
                 sendIfListening(target, ModConstants.CLIENTBOUND_HELLO, payload.toByteArray());
             }
-        } catch (IOException | RuntimeException ex) {
-            plugin.getCustomLogger().warning(ex, "Could not handle sync hello from %s", target.getName());
+            return new HelloResult(clientVersion, clientVersion == SYNC_HELLO_VERSION);
+        } catch (RuntimeException ex) {
+            throw new IOException("Could not handle sync hello", ex);
         }
     }
 
@@ -152,11 +140,11 @@ public class NetworkManager {
     private void sendEncoded(Player target, EncodedUser user) {
         if (!target.isOnline() || target.getUniqueId().equals(user.userId())) return;
 
-        if (user.fabricData().length > 0) {
-            sendIfListening(target, ModConstants.SYNC, user.fabricData());
-        }
-        if (user.forgeData().length > 0) {
-            sendIfListening(target, ModConstants.FORGE, user.forgeData());
+        String channel = plugin.getSyncStateCoordinator().preferredChannel(target);
+        if (ModConstants.SYNC.equals(channel) && user.fabricData().length > 0) {
+            target.sendPluginMessage(plugin, channel, user.fabricData());
+        } else if (ModConstants.FORGE.equals(channel) && user.forgeData().length > 0) {
+            target.sendPluginMessage(plugin, channel, user.forgeData());
         }
     }
 
@@ -168,5 +156,8 @@ public class NetworkManager {
     }
 
     private record EncodedUser(UUID userId, byte[] fabricData, byte[] forgeData) {
+    }
+
+    public record HelloResult(int clientVersion, boolean compatible) {
     }
 }

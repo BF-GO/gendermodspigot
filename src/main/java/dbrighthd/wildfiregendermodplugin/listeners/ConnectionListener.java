@@ -1,17 +1,20 @@
 package dbrighthd.wildfiregendermodplugin.listeners;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
+import io.papermc.paper.event.player.PlayerTrackEntityEvent;
+import io.papermc.paper.event.player.PlayerUntrackEntityEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRegisterChannelEvent;
+import org.bukkit.event.player.PlayerUnregisterChannelEvent;
 
 import java.util.UUID;
 
 /**
- * Handles player join and quit events.
+ * Handles player channel, tracking and lifecycle events.
  *
  * @author winnpixie
  */
@@ -22,24 +25,39 @@ public class ConnectionListener implements Listener {
         this.plugin = plugin;
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    void onPlayerTrack(PlayerTrackEntityEvent event) {
+        if (event.getEntity() instanceof Player tracked) {
+            plugin.getSyncStateCoordinator().onTrack(event.getPlayer(), tracked);
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
-    private void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
+    void onPlayerUntrack(PlayerUntrackEntityEvent event) {
+        if (event.getEntity() instanceof Player tracked) {
+            plugin.getSyncStateCoordinator().onUntrack(event.getPlayer(), tracked);
+        }
+    }
 
-        plugin.getCustomLogger().info("Syncing %s", player.getName());
+    @EventHandler(priority = EventPriority.MONITOR)
+    void onChannelRegistered(PlayerRegisterChannelEvent event) {
+        plugin.getSyncStateCoordinator().onChannelRegistered(event.getPlayer(), event.getChannel());
+    }
 
-        // Send ALL stored mod configurations to the newly joined player.
-        plugin.getNetworkManager().syncAllTo(player);
+    @EventHandler(priority = EventPriority.MONITOR)
+    void onChannelUnregistered(PlayerUnregisterChannelEvent event) {
+        plugin.getSyncStateCoordinator().onChannelUnregistered(event.getPlayer(), event.getChannel());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
-    private void onPlayerQuit(PlayerQuitEvent event) {
+    void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
         plugin.getCustomLogger().debug("Removing %s", player.getName());
 
-        // Remove configuration for a player who is no longer online.
+        plugin.getSyncStateCoordinator().remove(player);
+        plugin.getInboundPacketGuard().remove(uuid);
         plugin.getUserManager().remove(uuid);
     }
 }

@@ -3,7 +3,9 @@ package dbrighthd.wildfiregendermodplugin;
 import dbrighthd.wildfiregendermodplugin.listeners.ConnectionListener;
 import dbrighthd.wildfiregendermodplugin.listeners.ModPayloadListener;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
+import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
+import dbrighthd.wildfiregendermodplugin.networking.SyncStateCoordinator;
 import dbrighthd.wildfiregendermodplugin.scheduler.TaskDispatcher;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
@@ -19,6 +21,8 @@ public final class GenderModPlugin extends JavaPlugin {
     private final UserManager userManager = new UserManager();
     private final TaskDispatcher taskDispatcher = new TaskDispatcher(this);
     private final NetworkManager networkManager = new NetworkManager(this, taskDispatcher);
+    private final SyncStateCoordinator syncStateCoordinator = new SyncStateCoordinator(this);
+    private final InboundPacketGuard inboundPacketGuard = new InboundPacketGuard();
 
     @Override
     public void onEnable() {
@@ -42,6 +46,8 @@ public final class GenderModPlugin extends JavaPlugin {
     public void onDisable() {
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+        syncStateCoordinator.clear();
+        inboundPacketGuard.clear();
         userManager.clear();
     }
 
@@ -59,6 +65,14 @@ public final class GenderModPlugin extends JavaPlugin {
 
     public TaskDispatcher getTaskDispatcher() {
         return taskDispatcher;
+    }
+
+    public SyncStateCoordinator getSyncStateCoordinator() {
+        return syncStateCoordinator;
+    }
+
+    public InboundPacketGuard getInboundPacketGuard() {
+        return inboundPacketGuard;
     }
 
     static void runStartup(NetworkManager networkManager, Runnable invalidProtocol, Runnable registerPlugin) {

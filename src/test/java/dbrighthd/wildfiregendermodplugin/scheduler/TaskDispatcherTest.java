@@ -2,8 +2,6 @@ package dbrighthd.wildfiregendermodplugin.scheduler;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
-import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
-import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
@@ -15,20 +13,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TaskDispatcherTest {
-    @Test
-    void delegatesGlobalWorkToPaperGlobalRegionScheduler() {
-        GenderModPlugin plugin = mock(GenderModPlugin.class);
-        Server server = mock(Server.class);
-        GlobalRegionScheduler scheduler = mock(GlobalRegionScheduler.class);
-        Runnable task = mock(Runnable.class);
-        when(plugin.getServer()).thenReturn(server);
-        when(server.getGlobalRegionScheduler()).thenReturn(scheduler);
-
-        new TaskDispatcher(plugin).runGlobal(task);
-
-        verify(scheduler).execute(plugin, task);
-    }
-
     @Test
     void delegatesPlayerWorkToItsEntitySchedulerWithoutRetiredRetry() {
         GenderModPlugin plugin = mock(GenderModPlugin.class);
