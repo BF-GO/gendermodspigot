@@ -16,8 +16,9 @@ Download releases from [Modrinth](https://modrinth.com/plugin/female-gender-spig
 - Minecraft 26.2 servers require Java 25
 - Folia 26.2 support is beta while the corresponding Folia builds remain beta
 
-Version 1.6.0 is distributed as one Java 21 bytecode JAR for both Paper and Folia. Female Gender Mod 5.0.0-Beta.4
-is supported through protocol V5, including its play-phase hello handshake.
+Version 1.6.0 is distributed as one Java 21 bytecode JAR for both Paper and Folia. Protocol V5 is fixture-tested
+against Female Gender Mod 5.0.0-Beta.4, including its play-phase hello handshake. The future V5 handshake revision 2
+from the mod's development branch is not supported yet.
 
 ## Building
 
@@ -34,7 +35,7 @@ is supported through protocol V5, including its play-phase hello handshake.
 | 2 | 2.8.1–3.0.1 |
 | 3 | 3.1.0–4.0.0 |
 | 4 | 4.0.1–4.3.4 |
-| 5 | 5.0.0, including Beta.4 |
+| 5 | 5.0.0-Beta.4 |
 
 The default value `-1` selects the newest supported protocol (currently V5). Any other unsupported value prevents the
 plugin from enabling, so it cannot register incompatible channels or listeners.
