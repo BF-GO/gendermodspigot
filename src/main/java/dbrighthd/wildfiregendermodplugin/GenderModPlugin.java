@@ -3,6 +3,7 @@ package dbrighthd.wildfiregendermodplugin;
 import dbrighthd.wildfiregendermodplugin.listeners.ConnectionListener;
 import dbrighthd.wildfiregendermodplugin.listeners.ModPayloadListener;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
+import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
@@ -17,6 +18,7 @@ public final class GenderModPlugin extends JavaPlugin {
     private final CustomPluginLogger customLogger = new CustomPluginLogger(this);
     private final UserManager userManager = new UserManager();
     private final NetworkManager networkManager = new NetworkManager(this);
+    private final InboundPacketGuard inboundPacketGuard = new InboundPacketGuard();
 
     @Override
     public void onEnable() {
@@ -37,6 +39,7 @@ public final class GenderModPlugin extends JavaPlugin {
     public void onDisable() {
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+        inboundPacketGuard.clear();
     }
 
     public CustomPluginLogger getCustomLogger() {
@@ -49,6 +52,10 @@ public final class GenderModPlugin extends JavaPlugin {
 
     public NetworkManager getNetworkManager() {
         return networkManager;
+    }
+
+    public InboundPacketGuard getInboundPacketGuard() {
+        return inboundPacketGuard;
     }
 
     private void registerEventListeners() {

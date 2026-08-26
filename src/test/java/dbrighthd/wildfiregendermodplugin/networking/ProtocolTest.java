@@ -163,7 +163,7 @@ public class ProtocolTest {
                 () -> quads.put(UVDirection.NORTH, new UVQuad(1, 2, 3, 4)));
     }
 
-    static ModUser testUser(UUID userId) {
+    public static ModUser testUser(UUID userId) {
         Map<UVDirection, UVQuad> quads = new EnumMap<>(UVDirection.class);
         int index = 0;
         for (UVDirection direction : UVDirection.values()) {

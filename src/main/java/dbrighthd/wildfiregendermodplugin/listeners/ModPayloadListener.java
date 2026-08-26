@@ -1,6 +1,7 @@
 package dbrighthd.wildfiregendermodplugin.listeners;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
+import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import org.bukkit.entity.Player;
@@ -25,17 +26,26 @@ public class ModPayloadListener implements PluginMessageListener {
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
         if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE)) return;
 
+        if (message.length > InboundPacketGuard.MAX_SYNC_BYTES) {
+            warn(player, "Rejected oversized sync payload from %s (" + message.length + " bytes)");
+            return;
+        }
+
+        if (!plugin.getInboundPacketGuard().tryAcquire(player.getUniqueId())) {
+            warn(player, "Rate limit exceeded by %s; dropping client payloads");
+            return;
+        }
+
         ModUser user;
         try {
             user = plugin.getNetworkManager().deserializeUser(message, channel.equals(ModConstants.FORGE));
         } catch (IOException ex) {
-            plugin.getCustomLogger().warning(ex, "Rejected malformed sync payload from %s", player.getName());
+            warn(player, ex, "Rejected malformed sync payload from %s");
             return;
         }
 
         if (!player.getUniqueId().equals(user.userId())) {
-            plugin.getCustomLogger().warning("Unauthorized access attempt by %s for %s",
-                    player.getName(), user.userId());
+            warn(player, "Unauthorized configuration update by %s for " + user.userId());
 
             // Early return, unauthorized attempt to set another player's data.
             return;
@@ -47,5 +57,17 @@ public class ModPayloadListener implements PluginMessageListener {
 
         // Sync mod configurations for ALL online players.
         plugin.getNetworkManager().sync(plugin.getServer().getOnlinePlayers());
+    }
+
+    private void warn(Player player, String message) {
+        if (plugin.getInboundPacketGuard().shouldWarn(player.getUniqueId())) {
+            plugin.getCustomLogger().warning(message, player.getName());
+        }
+    }
+
+    private void warn(Player player, Throwable throwable, String message) {
+        if (plugin.getInboundPacketGuard().shouldWarn(player.getUniqueId())) {
+            plugin.getCustomLogger().warning(throwable, message, player.getName());
+        }
     }
 }
