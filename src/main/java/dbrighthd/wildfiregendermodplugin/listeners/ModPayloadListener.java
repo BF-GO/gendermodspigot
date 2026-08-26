@@ -62,12 +62,11 @@ public class ModPayloadListener implements PluginMessageListener {
             return;
         }
 
-        plugin.getUserManager().getUsers().put(user.userId(), user);
+        plugin.getUserManager().put(user);
         plugin.getCustomLogger().debug("Stored %s as %s",
                 player.getName(), user.configuration().generalOptions().genderIdentity().name());
 
-        // Sync mod configurations for ALL online players.
-        plugin.getNetworkManager().sync(plugin.getServer().getOnlinePlayers());
+        plugin.getNetworkManager().broadcast(player, user);
     }
 
     private void handleHello(Player player, byte[] message) {

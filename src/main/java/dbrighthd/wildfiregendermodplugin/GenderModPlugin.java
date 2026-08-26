@@ -20,7 +20,7 @@ public final class GenderModPlugin extends JavaPlugin {
     private final UserManager userManager = new UserManager();
     private final NetworkManager networkManager = new NetworkManager(this);
     private final InboundPacketGuard inboundPacketGuard = new InboundPacketGuard();
-    private final SyncStateCoordinator syncStateCoordinator = new SyncStateCoordinator();
+    private final SyncStateCoordinator syncStateCoordinator = new SyncStateCoordinator(this);
 
     @Override
     public void onEnable() {
@@ -31,6 +31,7 @@ public final class GenderModPlugin extends JavaPlugin {
         if (!networkManager.init()) {
             customLogger.severe("INVALID PROTOCOL, DISABLING SELF.");
             getServer().getPluginManager().disablePlugin(this);
+            return;
         }
 
         registerEventListeners();
@@ -43,6 +44,7 @@ public final class GenderModPlugin extends JavaPlugin {
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
         inboundPacketGuard.clear();
         syncStateCoordinator.clear();
+        userManager.clear();
     }
 
     public CustomPluginLogger getCustomLogger() {

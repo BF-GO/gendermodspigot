@@ -9,12 +9,10 @@ import dbrighthd.wildfiregendermodplugin.networking.SyncStateCoordinator;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
-import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +63,7 @@ class ModPayloadListenerTest {
 
         verify(fixture.guard()).tryAcquire(playerId);
         verify(fixture.networkManager()).deserializeUser(any(byte[].class), eq(false));
-        verify(fixture.networkManager()).sync(any());
+        verify(fixture.networkManager()).broadcast(player, user);
     }
 
     @Test
@@ -89,8 +87,8 @@ class ModPayloadListenerTest {
 
         fixture.listener().onPluginMessageReceived(ModConstants.SEND_GENDER_INFO, player, new byte[]{1});
 
-        assertTrue(fixture.userManager().getUsers().isEmpty());
-        verify(fixture.networkManager(), never()).sync(any());
+        assertTrue(fixture.userManager().snapshot().isEmpty());
+        verify(fixture.networkManager(), never()).broadcast(any(Player.class), any(ModUser.class));
     }
 
     @Test
@@ -102,8 +100,8 @@ class ModPayloadListenerTest {
 
         fixture.listener().onPluginMessageReceived(ModConstants.SEND_GENDER_INFO, player, new byte[]{1});
 
-        assertTrue(fixture.userManager().getUsers().isEmpty());
-        verify(fixture.networkManager(), never()).sync(any());
+        assertTrue(fixture.userManager().snapshot().isEmpty());
+        verify(fixture.networkManager(), never()).broadcast(any(Player.class), any(ModUser.class));
     }
 
     @Test
@@ -130,14 +128,11 @@ class ModPayloadListenerTest {
         SyncStateCoordinator coordinator = mock(SyncStateCoordinator.class);
         CustomPluginLogger logger = mock(CustomPluginLogger.class);
         UserManager userManager = new UserManager();
-        Server server = mock(Server.class);
         when(plugin.getNetworkManager()).thenReturn(networkManager);
         when(plugin.getInboundPacketGuard()).thenReturn(guard);
         when(plugin.getSyncStateCoordinator()).thenReturn(coordinator);
         when(plugin.getCustomLogger()).thenReturn(logger);
         when(plugin.getUserManager()).thenReturn(userManager);
-        when(plugin.getServer()).thenReturn(server);
-        when(server.getOnlinePlayers()).thenReturn(List.of());
         when(guard.tryAcquire(any(UUID.class))).thenReturn(true);
         when(guard.shouldWarn(any(UUID.class))).thenReturn(true);
         return new Fixture(new ModPayloadListener(plugin), networkManager, guard, coordinator, logger, userManager);
