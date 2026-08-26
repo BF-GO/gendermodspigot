@@ -25,7 +25,6 @@ public class NetworkManager {
 
     static {
         PACKET_FORMATS = Map.of(
-                1, new ModSyncPacketV1(),
                 2, new ModSyncPacketV2(),
                 3, new ModSyncPacketV3(),
                 4, new ModSyncPacketV4(),
@@ -61,16 +60,21 @@ public class NetworkManager {
         }
     }
 
-    public ModUser deserializeUser(byte[] data, boolean forge) {
+    public ModUser deserializeUser(byte[] data, boolean forge) throws IOException {
         try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
-            if (forge) input.readByte();
+            if (forge && input.readUnsignedByte() != 1) {
+                throw new IOException("Invalid Forge packet discriminator");
+            }
 
-            return packetFormat.read(input);
-        } catch (IOException ex) {
-            plugin.getCustomLogger().warning(ex, "Could not deserialize user (forge=%s)", forge);
+            ModUser user = packetFormat.read(input);
+            if (input.available() != 0) {
+                throw new IOException("Unexpected trailing data in sync payload");
+            }
+            ModUserValidator.validate(user, packetFormat.getVersion());
+            return user;
+        } catch (RuntimeException ex) {
+            throw new IOException("Could not deserialize user (forge=" + forge + ")", ex);
         }
-
-        return null;
     }
 
     private byte[] serializeUser(ModUser user, boolean forge) {
@@ -80,7 +84,7 @@ public class NetworkManager {
 
             packetFormat.write(user, output);
             return payload.toByteArray();
-        } catch (IOException ex) {
+        } catch (IOException | RuntimeException ex) {
             plugin.getCustomLogger().warning(ex, "Could not serialize user (forge=%s)", forge);
         }
 

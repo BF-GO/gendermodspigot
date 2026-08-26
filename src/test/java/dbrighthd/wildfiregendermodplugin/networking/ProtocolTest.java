@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -30,6 +31,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ProtocolTest {
@@ -110,6 +112,55 @@ public class ProtocolTest {
 
         ModUser v4 = read(new ModSyncPacketV4(), legacyV4Fixture());
         assertCoreConfiguration(expected, v4, true);
+    }
+
+    @Test
+    void rejectsInvalidGenderOrdinal() {
+        byte[] invalid = beta4Fixture();
+        invalid[16] = 3;
+
+        assertThrows(IOException.class, () -> readV5(invalid));
+    }
+
+    @Test
+    void rejectsInvalidUvCount() {
+        byte[] invalid = beta4Fixture();
+        invalid[53] = 6;
+
+        assertThrows(IOException.class, () -> readV5(invalid));
+    }
+
+    @Test
+    void rejectsInvalidUvDirection() {
+        byte[] invalid = beta4Fixture();
+        invalid[54] = 5;
+
+        assertThrows(IOException.class, () -> readV5(invalid));
+    }
+
+    @Test
+    void rejectsDuplicateUvDirection() {
+        byte[] invalid = beta4Fixture();
+        invalid[59] = 0;
+
+        assertThrows(IOException.class, () -> readV5(invalid));
+    }
+
+    @Test
+    void rejectsTruncatedPayload() {
+        byte[] fixture = beta4Fixture();
+        byte[] truncated = Arrays.copyOf(fixture, fixture.length - 1);
+
+        assertThrows(IOException.class, () -> readV5(truncated));
+    }
+
+    @Test
+    void decodedUvMapsAreImmutable() throws IOException {
+        ModUser decoded = readV5(beta4Fixture());
+        Map<UVDirection, UVQuad> quads = decoded.configuration().uvLayouts().skin().left().getQuads();
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> quads.put(UVDirection.NORTH, new UVQuad(1, 2, 3, 4)));
     }
 
     static ModUser testUser(UUID userId) {
@@ -227,6 +278,10 @@ public class ProtocolTest {
         try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
             return packet.read(input);
         }
+    }
+
+    private static ModUser readV5(byte[] data) throws IOException {
+        return read(new ModSyncPacketV5(), data);
     }
 
     private static void assertCoreConfiguration(ModUser expected, ModUser actual, boolean voicePitchPresent) {
