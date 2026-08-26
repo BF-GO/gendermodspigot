@@ -31,6 +31,12 @@ import static org.mockito.Mockito.when;
 
 class NetworkManagerTest {
     @Test
+    void reportsHelloSupportForKnownProtocols() {
+        assertFalse(fixture(4).networkManager().supportsHello());
+        assertTrue(fixture(5).networkManager().supportsHello());
+    }
+
+    @Test
     void repliesToCompatibleV5Hello() throws IOException {
         GenderModPlugin plugin = mock(GenderModPlugin.class);
         Player player = mock(Player.class);

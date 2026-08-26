@@ -50,7 +50,7 @@ public class NetworkManager {
     }
 
     public boolean supportsHello() {
-        return packetFormat != null && packetFormat.getVersion() == 5;
+        return packetFormat != null && packetFormat.getVersion() >= 5;
     }
 
     public void syncTo(Player target) {
@@ -78,7 +78,7 @@ public class NetworkManager {
             if (input.available() != 0) {
                 throw new IOException("Unexpected trailing data in sync payload");
             }
-            ModUserValidator.validate(user, packetFormat.getVersion());
+            ModUserValidator.validate(user);
             return user;
         } catch (RuntimeException ex) {
             throw new IOException("Could not deserialize user (forge=" + forge + ")", ex);
