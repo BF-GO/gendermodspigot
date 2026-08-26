@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -161,6 +162,21 @@ public class ProtocolTest {
 
         assertThrows(UnsupportedOperationException.class,
                 () -> quads.put(UVDirection.NORTH, new UVQuad(1, 2, 3, 4)));
+    }
+
+    @Test
+    void encodesV5HelloVersionAsVarInt() throws IOException {
+        byte[] encoded;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+             CraftOutputStream output = new CraftOutputStream(bytes)) {
+            output.writeVarInt(NetworkManager.SYNC_HELLO_VERSION);
+            encoded = bytes.toByteArray();
+        }
+
+        assertArrayEquals(new byte[]{1}, encoded);
+        try (CraftInputStream input = CraftInputStream.ofBytes(encoded)) {
+            assertEquals(NetworkManager.SYNC_HELLO_VERSION, input.readVarInt());
+        }
     }
 
     public static ModUser testUser(UUID userId) {

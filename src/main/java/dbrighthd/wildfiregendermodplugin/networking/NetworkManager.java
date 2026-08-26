@@ -17,6 +17,8 @@ import java.util.Map;
  * @author winnpixie
  */
 public class NetworkManager {
+    public static final int SYNC_HELLO_VERSION = 1;
+
     private static final Map<Integer, ModSyncPacket> PACKET_FORMATS;
 
     private final GenderModPlugin plugin;
@@ -48,15 +50,40 @@ public class NetworkManager {
         return true;
     }
 
+    public boolean supportsHello() {
+        return packetFormat != null && packetFormat.getVersion() == 5;
+    }
+
     public void sync(Collection<? extends Player> audience) {
         for (ModUser user : plugin.getUserManager().getUsers().values()) {
             byte[] fabricData = serializeUser(user, false);
             byte[] forgeData = serializeUser(user, true);
 
             for (Player recipient : audience) {
-                if (fabricData.length > 0) sendData(recipient, ModConstants.SYNC, fabricData);
+                if (fabricData.length > 0
+                        && (!supportsHello() || plugin.getSyncStateCoordinator().isHelloAccepted(recipient))) {
+                    sendData(recipient, ModConstants.SYNC, fabricData);
+                }
                 if (forgeData.length > 0) sendData(recipient, ModConstants.FORGE, forgeData);
             }
+        }
+    }
+
+    public HelloResult handleHello(Player target, byte[] data) throws IOException {
+        try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
+            int clientVersion = input.readVarInt();
+            if (input.available() != 0) {
+                throw new IOException("Unexpected trailing data in sync hello");
+            }
+
+            try (ByteArrayOutputStream payload = new ByteArrayOutputStream();
+                 CraftOutputStream output = new CraftOutputStream(payload)) {
+                output.writeVarInt(SYNC_HELLO_VERSION);
+                sendIfListening(target, ModConstants.CLIENTBOUND_HELLO, payload.toByteArray());
+            }
+            return new HelloResult(clientVersion, clientVersion == SYNC_HELLO_VERSION);
+        } catch (RuntimeException ex) {
+            throw new IOException("Could not handle sync hello", ex);
         }
     }
 
@@ -93,5 +120,14 @@ public class NetworkManager {
 
     private void sendData(Player target, String channel, byte[] data) {
         target.sendPluginMessage(plugin, channel, data);
+    }
+
+    private void sendIfListening(Player target, String channel, byte[] data) {
+        if (target.getListeningPluginChannels().contains(channel)) {
+            sendData(target, channel, data);
+        }
+    }
+
+    public record HelloResult(int clientVersion, boolean compatible) {
     }
 }

@@ -2,6 +2,7 @@ package dbrighthd.wildfiregendermodplugin.listeners;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
+import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import org.bukkit.entity.Player;
@@ -24,15 +25,25 @@ public class ModPayloadListener implements PluginMessageListener {
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
-        if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE)) return;
+        if (!channel.equals(ModConstants.SEND_GENDER_INFO)
+                && !channel.equals(ModConstants.FORGE)
+                && !channel.equals(ModConstants.SERVERBOUND_HELLO)) return;
 
-        if (message.length > InboundPacketGuard.MAX_SYNC_BYTES) {
-            warn(player, "Rejected oversized sync payload from %s (" + message.length + " bytes)");
+        boolean hello = channel.equals(ModConstants.SERVERBOUND_HELLO);
+        int maximumSize = hello ? InboundPacketGuard.MAX_HELLO_BYTES : InboundPacketGuard.MAX_SYNC_BYTES;
+        if (message.length > maximumSize) {
+            warn(player, "Rejected oversized " + (hello ? "hello" : "sync")
+                    + " payload from %s (" + message.length + " bytes)");
             return;
         }
 
         if (!plugin.getInboundPacketGuard().tryAcquire(player.getUniqueId())) {
             warn(player, "Rate limit exceeded by %s; dropping client payloads");
+            return;
+        }
+
+        if (hello) {
+            handleHello(player, message);
             return;
         }
 
@@ -57,6 +68,19 @@ public class ModPayloadListener implements PluginMessageListener {
 
         // Sync mod configurations for ALL online players.
         plugin.getNetworkManager().sync(plugin.getServer().getOnlinePlayers());
+    }
+
+    private void handleHello(Player player, byte[] message) {
+        try {
+            NetworkManager.HelloResult result = plugin.getNetworkManager().handleHello(player, message);
+            if (result.compatible()) {
+                plugin.getSyncStateCoordinator().onHelloAccepted(player);
+            } else {
+                warn(player, "Unsupported sync hello version from %s: " + result.clientVersion());
+            }
+        } catch (IOException ex) {
+            warn(player, ex, "Rejected malformed hello payload from %s");
+        }
     }
 
     private void warn(Player player, String message) {

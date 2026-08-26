@@ -5,6 +5,7 @@ import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
 import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.networking.ProtocolTest;
+import dbrighthd.wildfiregendermodplugin.networking.SyncStateCoordinator;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
@@ -37,6 +38,18 @@ class ModPayloadListenerTest {
 
         verify(fixture.guard(), never()).tryAcquire(any(UUID.class));
         verify(fixture.networkManager(), never()).deserializeUser(any(byte[].class), eq(false));
+    }
+
+    @Test
+    void rejectsOversizedHelloBeforeRateLimitingOrParsing() throws IOException {
+        Fixture fixture = fixture();
+        Player player = player(UUID.randomUUID());
+
+        fixture.listener().onPluginMessageReceived(
+                ModConstants.SERVERBOUND_HELLO, player, new byte[InboundPacketGuard.MAX_HELLO_BYTES + 1]);
+
+        verify(fixture.guard(), never()).tryAcquire(any(UUID.class));
+        verify(fixture.networkManager(), never()).handleHello(any(Player.class), any(byte[].class));
     }
 
     @Test
@@ -93,22 +106,41 @@ class ModPayloadListenerTest {
         verify(fixture.networkManager(), never()).sync(any());
     }
 
+    @Test
+    void acceptsOnlyCompatibleHelloVersions() throws IOException {
+        Fixture fixture = fixture();
+        Player accepted = player(UUID.randomUUID());
+        Player mismatched = player(UUID.randomUUID());
+        when(fixture.networkManager().handleHello(accepted, new byte[]{1}))
+                .thenReturn(new NetworkManager.HelloResult(1, true));
+        when(fixture.networkManager().handleHello(mismatched, new byte[]{2}))
+                .thenReturn(new NetworkManager.HelloResult(2, false));
+
+        fixture.listener().onPluginMessageReceived(ModConstants.SERVERBOUND_HELLO, accepted, new byte[]{1});
+        fixture.listener().onPluginMessageReceived(ModConstants.SERVERBOUND_HELLO, mismatched, new byte[]{2});
+
+        verify(fixture.coordinator()).onHelloAccepted(accepted);
+        verify(fixture.coordinator(), never()).onHelloAccepted(mismatched);
+    }
+
     private static Fixture fixture() {
         GenderModPlugin plugin = mock(GenderModPlugin.class);
         NetworkManager networkManager = mock(NetworkManager.class);
         InboundPacketGuard guard = mock(InboundPacketGuard.class);
+        SyncStateCoordinator coordinator = mock(SyncStateCoordinator.class);
         CustomPluginLogger logger = mock(CustomPluginLogger.class);
         UserManager userManager = new UserManager();
         Server server = mock(Server.class);
         when(plugin.getNetworkManager()).thenReturn(networkManager);
         when(plugin.getInboundPacketGuard()).thenReturn(guard);
+        when(plugin.getSyncStateCoordinator()).thenReturn(coordinator);
         when(plugin.getCustomLogger()).thenReturn(logger);
         when(plugin.getUserManager()).thenReturn(userManager);
         when(plugin.getServer()).thenReturn(server);
         when(server.getOnlinePlayers()).thenReturn(List.of());
         when(guard.tryAcquire(any(UUID.class))).thenReturn(true);
         when(guard.shouldWarn(any(UUID.class))).thenReturn(true);
-        return new Fixture(new ModPayloadListener(plugin), networkManager, guard, logger, userManager);
+        return new Fixture(new ModPayloadListener(plugin), networkManager, guard, coordinator, logger, userManager);
     }
 
     private static Player player(UUID userId) {
@@ -122,6 +154,7 @@ class ModPayloadListenerTest {
             ModPayloadListener listener,
             NetworkManager networkManager,
             InboundPacketGuard guard,
+            SyncStateCoordinator coordinator,
             CustomPluginLogger logger,
             UserManager userManager) {
     }
