@@ -26,6 +26,16 @@ public final class ModConstants {
      */
     public static final String SYNC = MOD_ID + ":sync";
 
+    /**
+     * V5 protocol hello sent from a Fabric client.
+     */
+    public static final String SERVERBOUND_HELLO = MOD_ID + ":serverbound/hello";
+
+    /**
+     * V5 protocol hello response sent to a Fabric client.
+     */
+    public static final String CLIENTBOUND_HELLO = MOD_ID + ":clientbound/hello";
+
     private ModConstants() {
     }
 }
