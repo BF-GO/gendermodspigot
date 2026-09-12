@@ -2,6 +2,8 @@ package dbrighthd.wildfiregendermodplugin.networking;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
+import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
+import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
@@ -17,62 +19,57 @@ import static org.mockito.Mockito.when;
 
 class SyncStateCoordinatorTest {
     @Test
-    void catchesUpWhenChannelPrecedesHello() {
+    void catchesUpTrackedPlayersWhenChannelAndHelloBecomeReady() {
         Fixture fixture = fixture(true);
         Player viewer = player();
+        Player tracked = trackedPlayer(fixture);
 
+        fixture.coordinator().onTrack(viewer, tracked);
         fixture.coordinator().onChannelRegistered(viewer, ModConstants.SYNC);
-        verify(fixture.networkManager(), never()).syncTo(viewer);
+        verify(fixture.networkManager(), never()).syncUserTo(viewer, fixture.user());
 
         fixture.coordinator().onHelloAccepted(viewer);
-        verify(fixture.networkManager()).syncTo(viewer);
+        verify(fixture.networkManager()).syncUserTo(viewer, fixture.user());
         assertEquals(ModConstants.SYNC, fixture.coordinator().preferredChannel(viewer));
     }
 
     @Test
-    void catchesUpWhenHelloPrecedesChannel() {
-        Fixture fixture = fixture(true);
-        Player viewer = player();
-
-        fixture.coordinator().onHelloAccepted(viewer);
-        verify(fixture.networkManager(), never()).syncTo(viewer);
-
-        fixture.coordinator().onChannelRegistered(viewer, ModConstants.SYNC);
-        verify(fixture.networkManager()).syncTo(viewer);
-    }
-
-    @Test
-    void legacyFabricBecomesReadyOnChannelRegistration() {
+    void trackingAfterNegotiationSynchronizesOnlyThatPlayer() {
         Fixture fixture = fixture(false);
         Player viewer = player();
+        Player tracked = trackedPlayer(fixture);
 
         fixture.coordinator().onChannelRegistered(viewer, ModConstants.SYNC);
+        fixture.coordinator().onTrack(viewer, tracked);
 
-        verify(fixture.networkManager()).syncTo(viewer);
-        assertEquals(ModConstants.SYNC, fixture.coordinator().preferredChannel(viewer));
+        verify(fixture.networkManager()).syncUserTo(viewer, fixture.user());
     }
 
     @Test
-    void forgeDoesNotRequireHello() {
-        Fixture fixture = fixture(true);
+    void untrackedPlayersAreNotIncludedInCatchUp() {
+        Fixture fixture = fixture(false);
         Player viewer = player();
+        Player tracked = trackedPlayer(fixture);
 
-        fixture.coordinator().onChannelRegistered(viewer, ModConstants.FORGE);
+        fixture.coordinator().onTrack(viewer, tracked);
+        fixture.coordinator().onUntrack(viewer, tracked);
+        fixture.coordinator().onChannelRegistered(viewer, ModConstants.SYNC);
 
-        verify(fixture.networkManager()).syncTo(viewer);
-        assertEquals(ModConstants.FORGE, fixture.coordinator().preferredChannel(viewer));
+        verify(fixture.networkManager(), never()).syncUserTo(viewer, fixture.user());
     }
 
     @Test
-    void fabricTakesPriorityWithoutDuplicateCatchUp() {
+    void forgeDoesNotRequireHelloAndFabricTakesPriorityWithoutDuplicateCatchUp() {
         Fixture fixture = fixture(true);
         Player viewer = player();
+        Player tracked = trackedPlayer(fixture);
+        fixture.coordinator().onTrack(viewer, tracked);
 
         fixture.coordinator().onChannelRegistered(viewer, ModConstants.FORGE);
         fixture.coordinator().onChannelRegistered(viewer, ModConstants.SYNC);
         fixture.coordinator().onHelloAccepted(viewer);
 
-        verify(fixture.networkManager(), times(1)).syncTo(viewer);
+        verify(fixture.networkManager(), times(1)).syncUserTo(viewer, fixture.user());
         assertEquals(ModConstants.SYNC, fixture.coordinator().preferredChannel(viewer));
     }
 
@@ -88,23 +85,38 @@ class SyncStateCoordinatorTest {
         assertNull(fixture.coordinator().preferredChannel(viewer));
         fixture.coordinator().onChannelRegistered(viewer, ModConstants.SYNC);
         assertNull(fixture.coordinator().preferredChannel(viewer));
-        verify(fixture.networkManager(), times(1)).syncTo(viewer);
     }
 
     private static Fixture fixture(boolean supportsHello) {
         GenderModPlugin plugin = mock(GenderModPlugin.class);
         NetworkManager networkManager = mock(NetworkManager.class);
+        UserManager userManager = new UserManager();
+        ModUser user = ProtocolTest.testUser(UUID.randomUUID());
+        userManager.put(user);
         when(plugin.getNetworkManager()).thenReturn(networkManager);
+        when(plugin.getUserManager()).thenReturn(userManager);
         when(networkManager.supportsHello()).thenReturn(supportsHello);
-        return new Fixture(new SyncStateCoordinator(plugin), networkManager);
+        return new Fixture(new SyncStateCoordinator(plugin), networkManager, userManager, user);
+    }
+
+    private static Player trackedPlayer(Fixture fixture) {
+        return player(fixture.user().userId());
     }
 
     private static Player player() {
+        return player(UUID.randomUUID());
+    }
+
+    private static Player player(UUID id) {
         Player player = mock(Player.class);
-        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(player.getUniqueId()).thenReturn(id);
         return player;
     }
 
-    private record Fixture(SyncStateCoordinator coordinator, NetworkManager networkManager) {
+    private record Fixture(
+            SyncStateCoordinator coordinator,
+            NetworkManager networkManager,
+            UserManager userManager,
+            ModUser user) {
     }
 }

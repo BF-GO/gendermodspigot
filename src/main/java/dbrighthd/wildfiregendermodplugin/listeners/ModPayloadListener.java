@@ -42,6 +42,12 @@ public class ModPayloadListener implements PluginMessageListener {
             return;
         }
 
+        byte[] payload = message.clone();
+        plugin.getTaskDispatcher().runFor(player, () -> handlePayload(channel, player, payload));
+    }
+
+    private void handlePayload(String channel, Player player, byte[] message) {
+        boolean hello = channel.equals(ModConstants.SERVERBOUND_HELLO);
         if (hello) {
             handleHello(player, message);
             return;

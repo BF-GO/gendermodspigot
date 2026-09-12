@@ -1,6 +1,8 @@
 package dbrighthd.wildfiregendermodplugin.listeners;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
+import io.papermc.paper.event.player.PlayerTrackEntityEvent;
+import io.papermc.paper.event.player.PlayerUntrackEntityEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,6 +23,20 @@ public class ConnectionListener implements Listener {
 
     public ConnectionListener(GenderModPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    void onPlayerTrack(PlayerTrackEntityEvent event) {
+        if (event.getEntity() instanceof Player tracked) {
+            plugin.getSyncStateCoordinator().onTrack(event.getPlayer(), tracked);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    void onPlayerUntrack(PlayerUntrackEntityEvent event) {
+        if (event.getEntity() instanceof Player tracked) {
+            plugin.getSyncStateCoordinator().onUntrack(event.getPlayer(), tracked);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -2,6 +2,7 @@ package dbrighthd.wildfiregendermodplugin.networking;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
+import dbrighthd.wildfiregendermodplugin.scheduler.TaskDispatcher;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
@@ -70,7 +71,7 @@ class NetworkManagerTest {
         Player fabric = player(UUID.randomUUID());
         Player forge = player(UUID.randomUUID());
         Player unavailable = player(UUID.randomUUID());
-        doReturn(List.of(source, fabric, forge, unavailable)).when(fixture.server()).getOnlinePlayers();
+        doReturn(Set.of(fabric, forge, unavailable)).when(source).getTrackedBy();
         when(fixture.coordinator().preferredChannel(fabric)).thenReturn(ModConstants.SYNC);
         when(fixture.coordinator().preferredChannel(forge)).thenReturn(ModConstants.FORGE);
         ModUser user = ProtocolTest.testUser(source.getUniqueId());
@@ -92,7 +93,7 @@ class NetworkManagerTest {
         fixture.userManager().put(ProtocolTest.testUser(UUID.randomUUID()));
         when(fixture.coordinator().preferredChannel(viewer)).thenReturn(ModConstants.SYNC);
 
-        fixture.networkManager().syncTo(viewer);
+        fixture.networkManager().syncUserTo(viewer, ProtocolTest.testUser(UUID.randomUUID()));
 
         verify(viewer, times(1)).sendPluginMessage(eq(fixture.plugin()), eq(ModConstants.SYNC), any(byte[].class));
     }
@@ -118,13 +119,19 @@ class NetworkManagerTest {
         FileConfiguration config = mock(FileConfiguration.class);
         CustomPluginLogger logger = mock(CustomPluginLogger.class);
         SyncStateCoordinator coordinator = mock(SyncStateCoordinator.class);
+        TaskDispatcher taskDispatcher = mock(TaskDispatcher.class);
         UserManager userManager = new UserManager();
         when(plugin.getServer()).thenReturn(server);
         when(plugin.getConfig()).thenReturn(config);
         when(plugin.getCustomLogger()).thenReturn(logger);
         when(plugin.getSyncStateCoordinator()).thenReturn(coordinator);
+        when(plugin.getTaskDispatcher()).thenReturn(taskDispatcher);
         when(plugin.getUserManager()).thenReturn(userManager);
         when(config.getInt("mod.protocol", -1)).thenReturn(protocol);
+        when(taskDispatcher.runFor(any(Player.class), any(Runnable.class))).thenAnswer(invocation -> {
+            invocation.getArgument(1, Runnable.class).run();
+            return true;
+        });
         return new Fixture(plugin, new NetworkManager(plugin), server, coordinator, userManager);
     }
 

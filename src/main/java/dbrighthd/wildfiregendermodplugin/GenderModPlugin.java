@@ -6,6 +6,7 @@ import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
 import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.networking.SyncStateCoordinator;
+import dbrighthd.wildfiregendermodplugin.scheduler.TaskDispatcher;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -18,6 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class GenderModPlugin extends JavaPlugin {
     private final CustomPluginLogger customLogger = new CustomPluginLogger(this);
     private final UserManager userManager = new UserManager();
+    private final TaskDispatcher taskDispatcher = new TaskDispatcher(this);
     private final NetworkManager networkManager = new NetworkManager(this);
     private final InboundPacketGuard inboundPacketGuard = new InboundPacketGuard();
     private final SyncStateCoordinator syncStateCoordinator = new SyncStateCoordinator(this);
@@ -65,6 +67,10 @@ public final class GenderModPlugin extends JavaPlugin {
 
     public SyncStateCoordinator getSyncStateCoordinator() {
         return syncStateCoordinator;
+    }
+
+    public TaskDispatcher getTaskDispatcher() {
+        return taskDispatcher;
     }
 
     private void registerEventListeners() {

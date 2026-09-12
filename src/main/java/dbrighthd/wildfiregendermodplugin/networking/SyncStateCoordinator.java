@@ -24,11 +24,11 @@ public final class SyncStateCoordinator {
         ViewerState state = state(viewer);
         boolean catchUp;
         synchronized (state) {
-            boolean wasReady = preferredChannel(state) != null;
+            boolean wasReady = isReady(state);
             if (!state.channels.add(channel)) return;
-            catchUp = !wasReady && preferredChannel(state) != null;
+            catchUp = !wasReady && isReady(state);
         }
-        if (catchUp) plugin.getNetworkManager().syncTo(viewer);
+        if (catchUp) syncTrackedTo(viewer, state);
     }
 
     public void onChannelUnregistered(Player viewer, String channel) {
@@ -49,11 +49,31 @@ public final class SyncStateCoordinator {
         ViewerState state = state(viewer);
         boolean catchUp;
         synchronized (state) {
-            boolean wasReady = preferredChannel(state) != null;
+            boolean wasReady = isReady(state);
             state.v5HelloAccepted = true;
-            catchUp = !wasReady && preferredChannel(state) != null;
+            catchUp = !wasReady && isReady(state);
         }
-        if (catchUp) plugin.getNetworkManager().syncTo(viewer);
+        if (catchUp) syncTrackedTo(viewer, state);
+    }
+
+    public void onTrack(Player viewer, Player tracked) {
+        if (viewer.getUniqueId().equals(tracked.getUniqueId())) return;
+
+        ViewerState state = state(viewer);
+        boolean shouldSync;
+        synchronized (state) {
+            shouldSync = state.trackedPlayers.add(tracked.getUniqueId()) && isReady(state);
+        }
+        if (shouldSync) syncOne(viewer, tracked.getUniqueId());
+    }
+
+    public void onUntrack(Player viewer, Player tracked) {
+        ViewerState state = viewers.get(viewer.getUniqueId());
+        if (state == null) return;
+
+        synchronized (state) {
+            state.trackedPlayers.remove(tracked.getUniqueId());
+        }
     }
 
     public boolean isHelloAccepted(Player viewer) {
@@ -75,7 +95,13 @@ public final class SyncStateCoordinator {
     }
 
     public void remove(Player player) {
-        viewers.remove(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        viewers.remove(playerId);
+        for (ViewerState state : viewers.values()) {
+            synchronized (state) {
+                state.trackedPlayers.remove(playerId);
+            }
+        }
     }
 
     public void clear() {
@@ -95,12 +121,30 @@ public final class SyncStateCoordinator {
         return null;
     }
 
+    private boolean isReady(ViewerState state) {
+        return preferredChannel(state) != null;
+    }
+
+    private void syncTrackedTo(Player viewer, ViewerState state) {
+        Set<UUID> trackedPlayers;
+        synchronized (state) {
+            trackedPlayers = Set.copyOf(state.trackedPlayers);
+        }
+        for (UUID trackedId : trackedPlayers) syncOne(viewer, trackedId);
+    }
+
+    private void syncOne(Player viewer, UUID trackedId) {
+        var user = plugin.getUserManager().get(trackedId);
+        if (user != null) plugin.getNetworkManager().syncUserTo(viewer, user);
+    }
+
     private static boolean isSyncChannel(String channel) {
         return channel.equals(ModConstants.SYNC) || channel.equals(ModConstants.FORGE);
     }
 
     private static final class ViewerState {
         private final Set<String> channels = new HashSet<>();
+        private final Set<UUID> trackedPlayers = new HashSet<>();
         private boolean v5HelloAccepted;
     }
 }

@@ -8,6 +8,7 @@ import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV4;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV5;
+import dbrighthd.wildfiregendermodplugin.scheduler.TaskDispatcher;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import org.bukkit.entity.Player;
@@ -15,6 +16,7 @@ import org.bukkit.entity.Player;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -33,10 +35,12 @@ public class NetworkManager {
     );
 
     private final GenderModPlugin plugin;
+    private final TaskDispatcher taskDispatcher;
     private ModSyncPacket packetFormat;
 
     public NetworkManager(GenderModPlugin plugin) {
         this.plugin = plugin;
+        this.taskDispatcher = plugin.getTaskDispatcher();
     }
 
     public boolean init() {
@@ -53,17 +57,24 @@ public class NetworkManager {
         return packetFormat != null && packetFormat.getVersion() >= 5;
     }
 
-    public void syncTo(Player target) {
-        for (ModUser user : plugin.getUserManager().snapshot()) {
-            sendEncoded(target, encodeUser(user));
-        }
+    /**
+     * Sends one stored profile to one viewer on the viewer's owning thread.
+     */
+    public void syncUserTo(Player target, ModUser user) {
+        EncodedUser encoded = encodeUser(user);
+        taskDispatcher.runFor(target, () -> sendEncoded(target, encoded));
     }
 
+    /**
+     * Broadcasts one changed profile only to players currently tracking its owner.
+     * This method must be invoked from the source player's owning thread.
+     */
     public void broadcast(Player source, ModUser user) {
         EncodedUser encoded = encodeUser(user);
-        for (Player recipient : plugin.getServer().getOnlinePlayers()) {
+        Set<Player> recipients = Set.copyOf(source.getTrackedBy());
+        for (Player recipient : recipients) {
             if (!recipient.getUniqueId().equals(source.getUniqueId())) {
-                sendEncoded(recipient, encoded);
+                taskDispatcher.runFor(recipient, () -> sendEncoded(recipient, encoded));
             }
         }
     }

@@ -6,6 +6,7 @@ import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.networking.ProtocolTest;
 import dbrighthd.wildfiregendermodplugin.networking.SyncStateCoordinator;
+import dbrighthd.wildfiregendermodplugin.scheduler.TaskDispatcher;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
@@ -128,13 +129,19 @@ class ModPayloadListenerTest {
         SyncStateCoordinator coordinator = mock(SyncStateCoordinator.class);
         CustomPluginLogger logger = mock(CustomPluginLogger.class);
         UserManager userManager = new UserManager();
+        TaskDispatcher taskDispatcher = mock(TaskDispatcher.class);
         when(plugin.getNetworkManager()).thenReturn(networkManager);
         when(plugin.getInboundPacketGuard()).thenReturn(guard);
         when(plugin.getSyncStateCoordinator()).thenReturn(coordinator);
         when(plugin.getCustomLogger()).thenReturn(logger);
         when(plugin.getUserManager()).thenReturn(userManager);
+        when(plugin.getTaskDispatcher()).thenReturn(taskDispatcher);
         when(guard.tryAcquire(any(UUID.class))).thenReturn(true);
         when(guard.shouldWarn(any(UUID.class))).thenReturn(true);
+        when(taskDispatcher.runFor(any(Player.class), any(Runnable.class))).thenAnswer(invocation -> {
+            invocation.getArgument(1, Runnable.class).run();
+            return true;
+        });
         return new Fixture(new ModPayloadListener(plugin), networkManager, guard, coordinator, logger, userManager);
     }
 
