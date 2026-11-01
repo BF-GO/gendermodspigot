@@ -40,6 +40,7 @@ public final class SyncStateCoordinator {
         synchronized (state) {
             state.channels.remove(channel);
             if (channel.equals(ModConstants.SYNC)) state.v5HelloAccepted = false;
+            if (channel.equals(ModConstants.BETA5_CLIENTBOUND_SYNC)) state.beta5HelloAccepted = false;
         }
     }
 
@@ -54,6 +55,22 @@ public final class SyncStateCoordinator {
             catchUp = !wasReady && isReady(state);
         }
         if (catchUp) syncTrackedTo(viewer, state);
+    }
+
+    public void onBeta5HelloAccepted(UUID viewerId) {
+        if (!plugin.getNetworkManager().supportsBeta5()) return;
+        ViewerState state = viewers.computeIfAbsent(viewerId, ignored -> new ViewerState());
+        synchronized (state) {
+            state.beta5HelloAccepted = true;
+        }
+    }
+
+    public boolean isBeta5HelloAccepted(Player viewer) {
+        ViewerState state = viewers.get(viewer.getUniqueId());
+        if (state == null) return false;
+        synchronized (state) {
+            return state.beta5HelloAccepted;
+        }
     }
 
     public void onTrack(Player viewer, Player tracked) {
@@ -113,6 +130,10 @@ public final class SyncStateCoordinator {
     }
 
     private String preferredChannel(ViewerState state) {
+        if (plugin.getNetworkManager().supportsBeta5()) {
+            return state.beta5HelloAccepted && state.channels.contains(ModConstants.BETA5_CLIENTBOUND_SYNC)
+                    ? ModConstants.BETA5_CLIENTBOUND_SYNC : null;
+        }
         if (state.channels.contains(ModConstants.SYNC)
                 && (!plugin.getNetworkManager().supportsHello() || state.v5HelloAccepted)) {
             return ModConstants.SYNC;
@@ -134,17 +155,23 @@ public final class SyncStateCoordinator {
     }
 
     private void syncOne(Player viewer, UUID trackedId) {
+        if (plugin.getNetworkManager().supportsBeta5()) {
+            plugin.getNetworkManager().syncBeta5UserTo(viewer, trackedId);
+            return;
+        }
         var user = plugin.getUserManager().get(trackedId);
         if (user != null) plugin.getNetworkManager().syncUserTo(viewer, user);
     }
 
     private static boolean isSyncChannel(String channel) {
-        return channel.equals(ModConstants.SYNC) || channel.equals(ModConstants.FORGE);
+        return channel.equals(ModConstants.SYNC) || channel.equals(ModConstants.FORGE)
+                || channel.equals(ModConstants.BETA5_CLIENTBOUND_SYNC);
     }
 
     private static final class ViewerState {
         private final Set<String> channels = new HashSet<>();
         private final Set<UUID> trackedPlayers = new HashSet<>();
         private boolean v5HelloAccepted;
+        private boolean beta5HelloAccepted;
     }
 }

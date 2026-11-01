@@ -36,6 +36,13 @@ public final class ModConstants {
      */
     public static final String CLIENTBOUND_HELLO = MOD_ID + ":clientbound/hello";
 
+    /** Beta.5 changed the namespace while keeping the packet paths. */
+    public static final String BETA5_MOD_ID = "female_gender_mod";
+    public static final String BETA5_SERVERBOUND_HELLO = BETA5_MOD_ID + ":serverbound/hello";
+    public static final String BETA5_CLIENTBOUND_HELLO = BETA5_MOD_ID + ":clientbound/hello";
+    public static final String BETA5_SERVERBOUND_SYNC = BETA5_MOD_ID + ":serverbound/sync";
+    public static final String BETA5_CLIENTBOUND_SYNC = BETA5_MOD_ID + ":clientbound/sync";
+
     private ModConstants() {
     }
 }

@@ -33,9 +33,18 @@ Download from Modrinth: https://modrinth.com/plugin/female-gender-spigot
 |    3     | 3.1.0 - 4.0.0 |
 |    4     | 4.0.1 - 4.3.4 |
 |    5     | 5.0.0-Beta.4  |
+|    6     | 5.0.0-Beta.5 (Fabric) |
 
-Setting this value to -1 will try using the newest known protocol, useful so you don't need to change this manually
-every time you update the mod and plugin.
+Setting this value to -1 selects protocol 6. Pin an older protocol when players use an older mod build.
 
 Protocol V5 support is verified against `5.0.0-Beta.4`, including its play-phase hello handshake. Future handshake
 revisions are not assumed to be compatible until they have been tested.
+
+Protocol 6 supports the Beta.5 configuration-phase hello and compact profile format. It requires Paper/Purpur 26.3
+and Java 25.
+The plugin advertises its configuration channel before the hello exchange so Fabric clients can register their
+receivers with Paper.
+Beta.5 uses the `female_gender_mod` payload namespace; older protocols use `wildfire_gender`.
+For proxy networks, install this plugin on each Paper backend. Protocol 6 stores the client's
+latest compact profile in a Minecraft cookie and restores it on a backend switch, because
+Beta.5 may not resend an unchanged profile during the same client connection.

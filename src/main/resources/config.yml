@@ -5,7 +5,8 @@ config-version: 0.2
 mod:
   # The packet format used for mod data reads/writes
   # For a list of protocols and their supported mod versions, refer to https://modrinth.com/plugin/female-gender-spigot
-  # -1 will use the newest known protocol, so that you won't need to change this every mod and plugin update.
+  # -1 uses protocol 6 for Female Gender Mod 5.0.0-Beta.5 (Fabric).
+  # Set 5 to keep the older 5.0.0-Beta.4 wire format and play-phase hello.
   # Undocumented protocols will cause this plugin to disable itself on launch.
   protocol: -1
 

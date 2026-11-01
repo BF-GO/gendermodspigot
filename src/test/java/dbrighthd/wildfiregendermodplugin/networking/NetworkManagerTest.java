@@ -85,6 +85,23 @@ class NetworkManagerTest {
     }
 
     @Test
+    void beta5BroadcastUsesNewChannelAndAddsSourceUuid() throws IOException {
+        Fixture fixture = fixture(6);
+        Player source = player(UUID.randomUUID());
+        Player tracking = player(UUID.randomUUID());
+        Player unavailable = player(UUID.randomUUID());
+        doReturn(Set.of(tracking, unavailable)).when(source).getTrackedBy();
+        when(fixture.coordinator().preferredChannel(tracking)).thenReturn(ModConstants.BETA5_CLIENTBOUND_SYNC);
+
+        fixture.networkManager().broadcastBeta5(source, new byte[]{0});
+
+        ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
+        verify(tracking).sendPluginMessage(eq(fixture.plugin()), eq(ModConstants.BETA5_CLIENTBOUND_SYNC), payload.capture());
+        assertArrayEquals(Beta5Packet.clientbound(source.getUniqueId(), new byte[]{0}), payload.getValue());
+        verify(unavailable, never()).sendPluginMessage(any(), any(), any());
+    }
+
+    @Test
     void channelCatchUpSendsStoredProfilesExceptTheViewersOwn() {
         Fixture fixture = fixture(4);
         UUID viewerId = UUID.randomUUID();

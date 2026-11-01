@@ -4,6 +4,8 @@ import dbrighthd.wildfiregendermodplugin.listeners.ConnectionListener;
 import dbrighthd.wildfiregendermodplugin.listeners.ModPayloadListener;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
 import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
+import dbrighthd.wildfiregendermodplugin.networking.Beta5Handshake;
+import dbrighthd.wildfiregendermodplugin.networking.Beta5CookieBridge;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.networking.SyncStateCoordinator;
 import dbrighthd.wildfiregendermodplugin.scheduler.TaskDispatcher;
@@ -23,6 +25,8 @@ public final class GenderModPlugin extends JavaPlugin {
     private final NetworkManager networkManager = new NetworkManager(this);
     private final InboundPacketGuard inboundPacketGuard = new InboundPacketGuard();
     private final SyncStateCoordinator syncStateCoordinator = new SyncStateCoordinator(this);
+    private final Beta5Handshake beta5Handshake = new Beta5Handshake(this);
+    private final Beta5CookieBridge beta5CookieBridge = new Beta5CookieBridge(this);
 
     @Override
     public void onEnable() {
@@ -45,6 +49,7 @@ public final class GenderModPlugin extends JavaPlugin {
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
         inboundPacketGuard.clear();
+        beta5Handshake.clear();
         syncStateCoordinator.clear();
         userManager.clear();
     }
@@ -73,12 +78,27 @@ public final class GenderModPlugin extends JavaPlugin {
         return taskDispatcher;
     }
 
+    public Beta5CookieBridge getBeta5CookieBridge() {
+        return beta5CookieBridge;
+    }
+
     private void registerEventListeners() {
         getServer().getPluginManager().registerEvents(new ConnectionListener(this), this);
+        if (networkManager.supportsBeta5()) {
+            getServer().getPluginManager().registerEvents(beta5Handshake, this);
+        }
     }
 
     private void registerModListeners() {
         ModPayloadListener payloadListener = new ModPayloadListener(this);
+
+        if (networkManager.supportsBeta5()) {
+            getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.BETA5_SERVERBOUND_HELLO, beta5Handshake);
+            getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.BETA5_CLIENTBOUND_HELLO);
+            getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.BETA5_SERVERBOUND_SYNC, payloadListener);
+            getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.BETA5_CLIENTBOUND_SYNC);
+            return;
+        }
 
         // Fabric
         getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.SEND_GENDER_INFO, payloadListener);

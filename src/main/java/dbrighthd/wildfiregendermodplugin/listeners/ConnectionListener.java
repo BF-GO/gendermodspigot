@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.event.player.PlayerUnregisterChannelEvent;
 
@@ -42,6 +43,19 @@ public class ConnectionListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     void onChannelRegistered(PlayerRegisterChannelEvent event) {
         plugin.getSyncStateCoordinator().onChannelRegistered(event.getPlayer(), event.getChannel());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    void onPlayerJoin(PlayerJoinEvent event) {
+        // Configuration-phase registrations are inherited by the game connection
+        // without a PlayerRegisterChannelEvent.
+        Player player = event.getPlayer();
+        for (String channel : player.getListeningPluginChannels()) {
+            plugin.getSyncStateCoordinator().onChannelRegistered(player, channel);
+        }
+        if (plugin.getNetworkManager().supportsBeta5()) {
+            plugin.getBeta5CookieBridge().restore(player);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

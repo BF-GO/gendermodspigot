@@ -2,6 +2,7 @@ package dbrighthd.wildfiregendermodplugin.listeners;
 
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import dbrighthd.wildfiregendermodplugin.networking.InboundPacketGuard;
+import dbrighthd.wildfiregendermodplugin.networking.Beta5Packet;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
@@ -27,6 +28,7 @@ public class ModPayloadListener implements PluginMessageListener {
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
         if (!channel.equals(ModConstants.SEND_GENDER_INFO)
                 && !channel.equals(ModConstants.FORGE)
+                && !channel.equals(ModConstants.BETA5_SERVERBOUND_SYNC)
                 && !channel.equals(ModConstants.SERVERBOUND_HELLO)) return;
 
         boolean hello = channel.equals(ModConstants.SERVERBOUND_HELLO);
@@ -53,6 +55,11 @@ public class ModPayloadListener implements PluginMessageListener {
             return;
         }
 
+        if (channel.equals(ModConstants.BETA5_SERVERBOUND_SYNC)) {
+            handleBeta5Payload(player, message);
+            return;
+        }
+
         ModUser user;
         try {
             user = plugin.getNetworkManager().deserializeUser(message, channel.equals(ModConstants.FORGE));
@@ -73,6 +80,22 @@ public class ModPayloadListener implements PluginMessageListener {
                 player.getName(), user.configuration().generalOptions().genderIdentity().name());
 
         plugin.getNetworkManager().broadcast(player, user);
+    }
+
+    private void handleBeta5Payload(Player player, byte[] message) {
+        if (!plugin.getSyncStateCoordinator().isBeta5HelloAccepted(player)) {
+            warn(player, "Beta.5 profile before a valid hello from %s");
+            return;
+        }
+        try {
+            String gender = Beta5Packet.validateConfig(message);
+            plugin.getUserManager().putBeta5(player.getUniqueId(), message);
+            plugin.getCustomLogger().debug("Stored Beta.5 profile for %s as %s", player.getName(), gender);
+            plugin.getBeta5CookieBridge().store(player, message);
+            plugin.getNetworkManager().broadcastBeta5(player, message);
+        } catch (IOException ex) {
+            warn(player, ex, "Rejected malformed Beta.5 sync payload from %s");
+        }
     }
 
     private void handleHello(Player player, byte[] message) {

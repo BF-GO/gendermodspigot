@@ -1,6 +1,6 @@
 name: Female-Gender-Mod-Plugin
 version: '${project.version}'
 main: dbrighthd.wildfiregendermodplugin.GenderModPlugin
-api-version: '1.21'
+api-version: '26.3'
 folia-supported: true
 authors: [ 'dbrighthd', 'Stigstille', 'winnpixie', 'BF-GO' ]

@@ -37,6 +37,7 @@ public class NetworkManager {
     private final GenderModPlugin plugin;
     private final TaskDispatcher taskDispatcher;
     private ModSyncPacket packetFormat;
+    private boolean beta5;
 
     public NetworkManager(GenderModPlugin plugin) {
         this.plugin = plugin;
@@ -45,7 +46,13 @@ public class NetworkManager {
 
     public boolean init() {
         int protocolVersion = plugin.getConfig().getInt("mod.protocol", -1);
-        packetFormat = protocolVersion == -1 ? PACKET_FORMATS.get(5) : PACKET_FORMATS.get(protocolVersion);
+        beta5 = protocolVersion == -1 || protocolVersion == 6;
+        if (beta5) {
+            packetFormat = null;
+            plugin.getCustomLogger().info("Using protocol 6 for mod version 5.0.0-Beta.5");
+            return true;
+        }
+        packetFormat = PACKET_FORMATS.get(protocolVersion);
         if (packetFormat == null) return false;
 
         plugin.getCustomLogger().info("Using protocol %d for mod version(s) %s",
@@ -55,6 +62,44 @@ public class NetworkManager {
 
     public boolean supportsHello() {
         return packetFormat != null && packetFormat.getVersion() >= 5;
+    }
+
+    public boolean supportsBeta5() {
+        return beta5;
+    }
+
+    /** Sends a validated Beta.5 compact profile with its owner UUID prepended. */
+    public void syncBeta5UserTo(Player target, UUID userId) {
+        byte[] config = plugin.getUserManager().getBeta5(userId);
+        if (config == null) return;
+        byte[] encoded = encodeBeta5(userId, config);
+        taskDispatcher.runFor(target, () -> sendBeta5Encoded(target, userId, encoded));
+    }
+
+    public void broadcastBeta5(Player source, byte[] config) {
+        UUID userId = source.getUniqueId();
+        byte[] encoded = encodeBeta5(userId, config);
+        for (Player recipient : Set.copyOf(source.getTrackedBy())) {
+            if (!recipient.getUniqueId().equals(userId)) {
+                taskDispatcher.runFor(recipient, () -> sendBeta5Encoded(recipient, userId, encoded));
+            }
+        }
+    }
+
+    private byte[] encodeBeta5(UUID userId, byte[] config) {
+        try {
+            return Beta5Packet.clientbound(userId, config);
+        } catch (IOException ex) {
+            // ByteArrayOutputStream cannot fail, but keep failure isolated from the tick thread.
+            throw new IllegalStateException("Could not encode Beta.5 profile", ex);
+        }
+    }
+
+    private void sendBeta5Encoded(Player target, UUID userId, byte[] data) {
+        if (!target.isOnline() || target.getUniqueId().equals(userId)) return;
+        if (ModConstants.BETA5_CLIENTBOUND_SYNC.equals(plugin.getSyncStateCoordinator().preferredChannel(target))) {
+            target.sendPluginMessage(plugin, ModConstants.BETA5_CLIENTBOUND_SYNC, data);
+        }
     }
 
     /**

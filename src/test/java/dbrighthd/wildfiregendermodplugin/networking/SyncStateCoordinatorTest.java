@@ -87,6 +87,22 @@ class SyncStateCoordinatorTest {
         assertNull(fixture.coordinator().preferredChannel(viewer));
     }
 
+    @Test
+    void beta5CatchUpNeedsConfigurationHelloAndPlayChannel() {
+        Fixture fixture = fixture(false);
+        when(fixture.networkManager().supportsBeta5()).thenReturn(true);
+        Player viewer = player();
+        Player tracked = trackedPlayer(fixture);
+
+        fixture.coordinator().onTrack(viewer, tracked);
+        fixture.coordinator().onBeta5HelloAccepted(viewer.getUniqueId());
+        verify(fixture.networkManager(), never()).syncBeta5UserTo(viewer, tracked.getUniqueId());
+
+        fixture.coordinator().onChannelRegistered(viewer, ModConstants.BETA5_CLIENTBOUND_SYNC);
+        verify(fixture.networkManager()).syncBeta5UserTo(viewer, tracked.getUniqueId());
+        assertEquals(ModConstants.BETA5_CLIENTBOUND_SYNC, fixture.coordinator().preferredChannel(viewer));
+    }
+
     private static Fixture fixture(boolean supportsHello) {
         GenderModPlugin plugin = mock(GenderModPlugin.class);
         NetworkManager networkManager = mock(NetworkManager.class);
